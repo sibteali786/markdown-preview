@@ -1,9 +1,13 @@
-# Example Markdown File
-This is an example Markdown file to test the preview tool
-## Features:
-* Support for links [PragProg](https://pragprog.com)
-* Support for other features
-## How to install:
+# Test Markdown File
+
+Just a test
+
+## Bullets:
+
+- Links [Link1](https://example.com)
+
+## Code Block
+
 ```
-go get github.com/user/program
+some code
 ```
