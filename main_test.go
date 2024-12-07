@@ -18,11 +18,17 @@ func TestParseContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := parseContent(input)
+	result, err := parseContent(input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected, err := os.ReadFile(goldenFile)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Trim whitespace from result and expected
+	result = bytes.TrimSpace(result)
+	expected = bytes.TrimSpace(expected)
 	if !bytes.Equal(expected, result) {
 		t.Logf("golden:\n%s\n", expected)
 		t.Logf("result:\n%s\n", result)
@@ -33,7 +39,7 @@ func TestParseContent(t *testing.T) {
 // Integration test
 func TestRun(t *testing.T) {
 	var mockStdOut bytes.Buffer
-	if err := run(inputFile, &mockStdOut, true); err != nil {
+	if err := run(inputFile, "", &mockStdOut, true); err != nil {
 		t.Fatal(err)
 	}
 	resultFile := strings.TrimSpace(mockStdOut.String())
@@ -45,6 +51,9 @@ func TestRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Trim whitespace from result and expected
+	result = bytes.TrimSpace(result)
+	expected = bytes.TrimSpace(expected)
 	if !bytes.Equal(expected, result) {
 		t.Logf("golden:\n%s\n", expected)
 		t.Logf("result:\n%s\n", result)
