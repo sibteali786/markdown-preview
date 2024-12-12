@@ -16,7 +16,7 @@ import (
 	"github.com/russross/blackfriday/v2"
 )
 
-const (
+var (
 	defaultTemplate = `<!DOCTYPE html>
 <html>
 	<head>
@@ -41,57 +41,90 @@ func main() {
 	// Parse flags
 	filename := flag.String("file", "", "Markdown file to preview")
 	skipPreview := flag.Bool("s", false, "Skip auto preview")
-	tFname := flag.String("t", "", "Alternate template file path")
-
+	tFname := flag.String("t", "", "Alternate template name")
+	flag.Parse()
 	// Enhance usage information
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), `
 Usage:
-  mdp [options]
+mdp [options]
 
 Options:
-  -file string
-        Path to the Markdown file to preview (required).
-  -s    
-        Skip opening the preview in a browser (optional).
-  -t string
-        Path to an alternate HTML template file (optional).
+-file string
+	Path to the Markdown file to preview (required).
+-s    
+	Skip opening the preview in a browser (optional).
+-t string
+	Path to an alternate HTML template file (optional).
 
 Environment Variables:
-  MDP_TEMPLATE
-        Path to a default template file. Used when -t is not specified.
+MDP_TEMPLATE
+	Path to a default template file. Used when -t is not specified.
 
 Examples:
-  Use the default template:
-      mdp -file example.md
+Use the default template:
+  mdp -file example.md
 
-  Use a custom template file via flag:
-      mdp -file example.md -t /path/to/template.html
+Use a custom template file via flag:
+  mdp -file example.md -t /path/to/template.html
 
-  Use a custom template via environment variable:
-      export MDP_TEMPLATE=/path/to/template.html
-      mdp -file example.md
+Use a custom template via environment variable:
+  export MDP_TEMPLATE=/path/to/template.html
+  mdp -file example.md
 
-  Skip opening the preview in a browser:
-      mdp -file example.md -s
+Skip opening the preview in a browser:
+  mdp -file example.md -s
 `)
 
 		// Show the default usage text
 		flag.PrintDefaults()
 	}
+	// Determine input source: File or STDIN
+	var input []byte
+	var err error
+	var fileNameOnly string
 
-	flag.Parse()
+	if *filename != "" {
+		// Read from the specified file
+		input, err = os.ReadFile(*filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
+			os.Exit(1)
+		}
+		fileNameOnly = filepath.Base(*filename)
+	} else {
 
-	// If user did not provide input file, show usage
-	if *filename == "" {
-		flag.Usage()
-		os.Exit(1)
+		//INFO: os.Stdin.Stat():
+		// Retrieves the file information (like mode, size, etc.) of the STDIN stream.
+		// Returns a FileInfo structure that includes details about STDIN.
+		// INFO: stat.Mode() & os.ModeCharDevice:
+
+		// stat.Mode() returns the mode bits of STDIN.
+		// os.ModeCharDevice is a constant that indicates whether the input is coming from a terminal (character device).
+		// The bitwise & operation checks if the STDIN is connected to a terminal (e.g., the user hasn’t piped or redirected input to the program).
+
+		//INFO: If (stat.Mode() & os.ModeCharDevice) != 0:
+
+		// It means the STDIN is connected to a terminal and no data is being piped or redirected to the program.
+		// Read from STDIN
+		stat, _ := os.Stdin.Stat()
+		if (stat.Mode() & os.ModeCharDevice) != 0 {
+			fmt.Fprintln(os.Stderr, "No input provided. Use -file or pipe Markdown content via STDIN.")
+			flag.Usage()
+			os.Exit(1)
+		}
+		input, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading from STDIN: %v\n", err)
+			os.Exit(1)
+		}
+		fileNameOnly = "STDIN"
 	}
 
 	// Resolve the template to use
 	templatePath := resolveTemplate(*tFname)
 
-	if err := run(*filename, templatePath, os.Stdout, *skipPreview); err != nil {
+	if err := run(input, templatePath, fileNameOnly, os.Stdout, *skipPreview); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -112,17 +145,8 @@ func resolveTemplate(tFname string) string {
 	return ""
 }
 
-func run(filename string, templatePath string, out io.Writer, skipPreview bool) error {
-	// Read all the data from the input file and check for errors
-	input, err := os.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-
-	// Extract only the file name from the full path
-	fileNameOnly := filepath.Base(filename)
-
-	htmlData, err := parseContent(input, templatePath, fileNameOnly)
+func run(input []byte, templatePath string, fileName string, out io.Writer, skipPreview bool) error {
+	htmlData, err := parseContent(input, templatePath, fileName)
 	if err != nil {
 		return err
 	}
@@ -150,7 +174,7 @@ func run(filename string, templatePath string, out io.Writer, skipPreview bool) 
 }
 
 func parseContent(input []byte, templatePath string, fileName string) ([]byte, error) {
-	// Parse the markdown file through blackfriday and bluemonday to generate valid and safe HTML
+	// Parse the markdown file through blackfriday and bluemonday
 	output := blackfriday.Run(input)
 	body := bluemonday.UGCPolicy().SanitizeBytes(output)
 
@@ -171,17 +195,13 @@ func parseContent(input []byte, templatePath string, fileName string) ([]byte, e
 		}
 	}
 
-	// Instantiate the content with the title, body, and file name
 	c := content{
 		Title:    "Markdown Preview Tool",
 		Body:     template.HTML(body),
 		FileName: fileName,
 	}
 
-	// Create a buffer of bytes to write to file
 	var buffer bytes.Buffer
-
-	// Execute the template with the content
 	if err := t.Execute(&buffer, c); err != nil {
 		return nil, err
 	}
