@@ -153,3 +153,10 @@ This project is licensed under the [MIT License](LICENSE).
 
 - [Blackfriday Markdown Processor](https://github.com/russross/blackfriday)
 - [Bluemonday HTML Sanitizer](https://github.com/microcosm-cc/bluemonday)
+
+
+### Background
+This tool was my attempt to learn `Go` and its abilities from the book `Powerful Command - Line Applications in Go`. I have also implemented challenges from exercise in the book and added support for 
+- Read markdown input from Stdin
+- Use template from env set variable
+- Showing current Filename at top of the Preview 
