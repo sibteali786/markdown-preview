@@ -18,7 +18,8 @@ func TestParseContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := parseContent(input, "")
+	// Pass the filename to parseContent
+	result, err := parseContent(input, "", "test1.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,6 +40,7 @@ func TestParseContent(t *testing.T) {
 // Integration test
 func TestRun(t *testing.T) {
 	var mockStdOut bytes.Buffer
+	// Ensure the run function uses the correct filename
 	if err := run(inputFile, "", &mockStdOut, true); err != nil {
 		t.Fatal(err)
 	}
